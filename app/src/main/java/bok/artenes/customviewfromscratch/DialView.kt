@@ -17,8 +17,18 @@ class DialView @JvmOverloads constructor(
     style: Int = 0
 ) : View(context, attributes, style) {
 
+    private var fanOffColor = Color.GRAY
+
+    private var fanOnColor = Color.CYAN
+
     init {
         isClickable = true
+
+        val typedArray = context.obtainStyledAttributes(attributes, R.styleable.DialView, 0, 0)
+        fanOnColor = typedArray.getColor(R.styleable.DialView_fanOnColor, fanOnColor)
+        fanOffColor = typedArray.getColor(R.styleable.DialView_fanOffColor, fanOffColor)
+        typedArray.recycle()
+
     }
 
     private val textPaint = Paint().also {
@@ -29,7 +39,7 @@ class DialView @JvmOverloads constructor(
     }
 
     private val dialPaint = Paint().also {
-        it.color = Color.GRAY
+        it.color = fanOffColor
     }
 
     private var radius: Float = 0F
@@ -78,9 +88,9 @@ class DialView @JvmOverloads constructor(
     private fun onDialTouched() {
         activeSelection = (activeSelection + 1) % SELECTION_COUNT
         if (activeSelection >= 1) {
-            dialPaint.color = Color.GREEN
+            dialPaint.color = fanOnColor
         } else {
-            dialPaint.color = Color.GRAY
+            dialPaint.color = fanOffColor
         }
         invalidate()
     }
