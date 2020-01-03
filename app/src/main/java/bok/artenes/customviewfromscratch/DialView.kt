@@ -17,19 +17,28 @@ class DialView @JvmOverloads constructor(
     style: Int = 0
 ) : View(context, attributes, style) {
 
+    private var radius: Float = 0F
+
+    private var activeSelection: Int = 0
+        set(value) {
+            field = value
+            dialPaint.color = if (value >= 1) fanOnColor else fanOffColor
+            invalidate()
+        }
+
+    private val tempLabel = StringBuffer(8)
+
+    private val tempResult = FloatArray(2)
+
     private var fanOffColor = Color.GRAY
 
     private var fanOnColor = Color.CYAN
 
-    init {
-        isClickable = true
-
-        val typedArray = context.obtainStyledAttributes(attributes, R.styleable.DialView, 0, 0)
-        fanOnColor = typedArray.getColor(R.styleable.DialView_fanOnColor, fanOnColor)
-        fanOffColor = typedArray.getColor(R.styleable.DialView_fanOffColor, fanOffColor)
-        typedArray.recycle()
-
-    }
+    var selectionIndicators = 4
+        set(value) {
+            field = value + 1
+            activeSelection = 0
+        }
 
     private val textPaint = Paint().also {
         it.color = Color.BLACK
@@ -42,13 +51,17 @@ class DialView @JvmOverloads constructor(
         it.color = fanOffColor
     }
 
-    private var radius: Float = 0F
+    init {
+        isClickable = true
 
-    private var activeSelection: Int = 0
+        val typedArray = context.obtainStyledAttributes(attributes, R.styleable.DialView, 0, 0)
+        fanOnColor = typedArray.getColor(R.styleable.DialView_fanOnColor, fanOnColor)
+        fanOffColor = typedArray.getColor(R.styleable.DialView_fanOffColor, fanOffColor)
+        selectionIndicators =
+            typedArray.getInteger(R.styleable.DialView_selectionIndicators, selectionIndicators)
+        typedArray.recycle()
 
-    private val tempLabel = StringBuffer(8)
-
-    private val tempResult = FloatArray(2)
+    }
 
     override fun onSizeChanged(width: Int, height: Int, oldw: Int, oldh: Int) {
         calculateRadius(width, height)
@@ -86,13 +99,7 @@ class DialView @JvmOverloads constructor(
     }
 
     private fun onDialTouched() {
-        activeSelection = (activeSelection + 1) % SELECTION_COUNT
-        if (activeSelection >= 1) {
-            dialPaint.color = fanOnColor
-        } else {
-            dialPaint.color = fanOffColor
-        }
-        invalidate()
+        activeSelection = (activeSelection + 1) % selectionIndicators
     }
 
     private fun drawDial(canvas: Canvas) {
@@ -108,7 +115,7 @@ class DialView @JvmOverloads constructor(
         val radiusWithPadding = this.radius - 35
         //arbitrary radius for the marker that we saw it looked fine
         val markerRadius = 20f
-        val coordinates = calculateCoordinateForPosition(activeSelection, radiusWithPadding)
+        val coordinates = calculateCoordinatesForPosition(activeSelection, radiusWithPadding)
         val x = coordinates[0]
         val y = coordinates[1]
         canvas.drawCircle(x, y, markerRadius, textPaint)
@@ -120,8 +127,8 @@ class DialView @JvmOverloads constructor(
         //so we take its radius and add it by an arbitrary amount
         val radiusWithPadding = this.radius + 20
         val label = tempLabel
-        for (position in 0 until SELECTION_COUNT) {
-            val coordinate = calculateCoordinateForPosition(position, radiusWithPadding)
+        for (position in 0 until selectionIndicators) {
+            val coordinate = calculateCoordinatesForPosition(position, radiusWithPadding, true)
             val x = coordinate[0]
             val y = coordinate[1]
             label.setLength(0)
@@ -147,7 +154,19 @@ class DialView @JvmOverloads constructor(
         this.radius = radiusWithPadding.toFloat()
     }
 
-    private fun calculateCoordinateForPosition(position: Int, radius: Float): FloatArray {
+    private fun calculateCoordinatesForPosition(
+        position: Int,
+        radius: Float,
+        isLabel: Boolean = false
+    ): FloatArray {
+        return if (selectionIndicators > 4) {
+            calculateCoordinatesAroundTheCircle(position, radius, isLabel)
+        } else {
+            calculateCoordinatesAtTopOfCircle(position, radius)
+        }
+    }
+
+    private fun calculateCoordinatesAtTopOfCircle(position: Int, radius: Float): FloatArray {
         val result = tempResult
 
         /**
@@ -207,7 +226,7 @@ class DialView @JvmOverloads constructor(
          * and we multiply this result with PI to get this fraction value to add
          * to the initial angle.
          */
-        val angle = initialAngle + position * (PI / 4)
+        val angle = initialAngle + position * (PI / selectionIndicators)
 
         //the Parametric Equation explained above
         val x = (radius * cos(angle)) + (width / 2)
@@ -221,10 +240,33 @@ class DialView @JvmOverloads constructor(
         return result
     }
 
-    companion object {
+    private fun calculateCoordinatesAroundTheCircle(
+        position: Int,
+        radius: Float,
+        isLabel: Boolean
+    ): FloatArray {
+        val result = tempResult
+        val initialAngle = 3 / 2.0 * PI
 
-        private const val SELECTION_COUNT = 4
+        //we multiply PI by 2 because PI = 180º
+        //since we want to put the labels around the circle
+        //we have to double 90º to get 360º
+        val angle = initialAngle + position * ((PI * 2) / selectionIndicators)
 
+        val x = (radius * cos(angle)) + (width / 2)
+        var y = (radius * sin(angle)) + (height / 2)
+
+        //work around to move the labels that are in the under half of the circle
+        //a little bit down because they are touching the circle and getting
+        //overlapped by it. This value is arbitrary and might not work in all devices.
+        if (isLabel) {
+            y += 13
+        }
+
+        result[0] = x.toFloat()
+        result[1] = y.toFloat()
+
+        return result
     }
 
 }

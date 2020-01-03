@@ -29,6 +29,7 @@
         android:layout_marginEnd="8dp"
         app:fanOffColor="@color/blue1"
         app:fanOnColor="@color/red1"
+        app:selectionIndicators="9"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/customViewLabel" />
